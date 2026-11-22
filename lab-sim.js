@@ -16,7 +16,9 @@
     tile: { name: '젖은 타일', friction: 0.04, soft: 1.05, color: '#bfe0ef' },
     soap: { name: '비누 거품 타일', friction: 0.005, soft: 1.05, color: '#e6f4ff' },
     carpet: { name: '카펫', friction: 0.9, soft: 0.8, color: '#c96b6b' },
-    mat: { name: '푹신한 매트', friction: 0.8, soft: 0.5, color: '#8fcf9b' }
+    mat: { name: '푹신한 매트', friction: 0.8, soft: 0.5, color: '#8fcf9b' },
+    asphalt: { name: '아스팔트', friction: 0.8, soft: 1.1, color: '#7a7f88' },
+    grass: { name: '잔디', friction: 0.7, soft: 0.7, color: '#86c272' }
   };
 
   const EXPERIMENTS = [
@@ -60,6 +62,27 @@
         { id: 'case', label: '말랑한 케이스', type: 'bool', value: false }
       ],
       safety: ['누워서 볼 때는 옆으로 누워 폰을 얼굴 정면 위로 들지 마세요.', '그립톡·스트랩을 쓰면 손에서 덜 미끄러져요.', '콧등·치아에 맞았는데 붓기나 출혈이 계속되면 진료를 받으세요.']
+    },
+    {
+      id: 'kick', name: '킥보드 돌부리 급정거', emoji: '🛴',
+      desc: '전동 킥보드를 타다 앞바퀴가 돌부리에 턱 걸리면? 몸은 계속 앞으로 갑니다.',
+      params: [
+        { id: 'speed', label: '달리던 속도', min: 1, max: 6, step: 0.5, value: 3, unit: 'm/s' },
+        { id: 'floor', label: '바닥', type: 'floor', options: ['asphalt', 'grass'], value: 'asphalt' },
+        { id: 'helmet', label: '헬멧 착용', type: 'bool', value: false }
+      ],
+      safety: ['킥보드·자전거를 탈 때는 헬멧을 꼭 쓰세요. 앞으로 고꾸라지면 얼굴·머리부터 닿기 쉬워요.', '속도를 줄이고, 턱·맨홀·돌부리가 많은 길은 내려서 끌고 가세요.', '두 명이 함께 타거나 한 손으로 휴대폰을 보며 타지 마세요.']
+    },
+    {
+      id: 'stool', name: '바퀴 의자 밟고 전구 갈기', emoji: '💡',
+      desc: '사다리 대신 바퀴 달린 의자에 올라가 손을 뻗으면? 의자가 쓱 밀려납니다.',
+      params: [
+        { id: 'height', label: '올라선 높이', min: 30, max: 90, step: 10, value: 50, unit: 'cm' },
+        { id: 'wobble', label: '몸 흔들림', min: 0, max: 10, step: 1, value: 2, unit: '' },
+        { id: 'floor', label: '바닥', type: 'floor', options: ['wood', 'carpet', 'mat'], value: 'wood' },
+        { id: 'helmet', label: '헬멧 착용', type: 'bool', value: false }
+      ],
+      safety: ['높은 곳 작업은 바퀴 없는 접이식 사다리를 쓰고, 다리를 끝까지 펴 고정하세요.', '혼자 하지 말고 한 사람이 사다리를 잡아 주세요.', '떨어져 머리를 부딪힌 뒤 구토·심한 두통·졸림이 있으면 바로 119 또는 응급실로 가세요.']
     }
   ];
 
@@ -86,7 +109,13 @@
       add(add(hip, rot({ x: dx, y: 0 }, ta)), rot({ x: 0, y: 42.5 }, la))));
     const arms = [-17, 17].map(dx => at(M.Bodies.rectangle(0, 0, 8, 56, { label: 'arm', chamfer: { radius: 4 }, angle: aa, density: 0.0015 }),
       add(add(hip, rot({ x: dx, y: -50 }, ta)), rot({ x: 0, y: 27 }, aa))));
-    return { torso, head, legs, arms, parts: [legs[0], legs[1], torso, arms[0], arms[1], head] };
+    const joints = {
+      hip: { x: hip.x, y: hip.y },
+      neck: add(hip, rot({ x: 0, y: -55 }, ta)),
+      shL: add(hip, rot({ x: -17, y: -50 }, ta)), shR: add(hip, rot({ x: 17, y: -50 }, ta)),
+      hipL: add(hip, rot({ x: -6, y: 0 }, ta)), hipR: add(hip, rot({ x: 6, y: 0 }, ta))
+    };
+    return { torso, head, legs, arms, joints, parts: [legs[0], legs[1], torso, arms[0], arms[1], head] };
   }
   function compound(M, parts, o) {
     return M.Body.create(Object.assign({ parts, friction: 0.7, frictionStatic: 0.5, restitution: 0.05 }, o));
@@ -116,6 +145,7 @@
     statics.push(ground);
     const extra = [];
     let doll, actor, onStep = null, target = 'head';
+    const props = [];                                  // 함께 그릴 도구(킥보드·의자)
     let factor = fl.soft * (p.helmet ? 0.45 : 1);
 
     if (id === 'chair') {
@@ -178,11 +208,84 @@
       extra.push(phone);
       target = 'phone';
       factor = (p.weight === 'heavy' ? 0.55 : 0.4) * (p.case ? 0.8 : 1);
+    } else if (id === 'kick') {
+      const v = p.speed / PX2MS, deckY = FLOOR - 14, x0 = 200;
+      const scooterParts = [
+        M.Bodies.rectangle(x0 + 30, deckY + 2, 70, 5, { label: 'scooter', density: 0.004 }),
+        M.Bodies.rectangle(x0 + 62, deckY - 50, 5, 100, { label: 'scooter', density: 0.002 }),
+        M.Bodies.rectangle(x0 + 56, deckY - 100, 20, 4, { label: 'scooter', density: 0.002 }),
+        M.Bodies.circle(x0 - 2, FLOOR - 6, 6, { label: 'wheel', density: 0.004 }),
+        M.Bodies.circle(x0 + 62, FLOOR - 6, 6, { label: 'wheel', density: 0.004 })
+      ];
+      const hip = { x: x0 + 24, y: deckY - 85 };
+      doll = dollParts(M, hip, 0.05, 0, { armAngle: -0.75 });
+      actor = compound(M, scooterParts.concat(doll.parts), { label: 'actor', friction: 0.02, frictionStatic: 0.02, frictionAir: 0 });   // 손잡이를 잡고 서 있어 킥보드와 한 덩어리
+      M.Body.setVelocity(actor, { x: v, y: 0 });
+      const stone = M.Bodies.rectangle(x0 + 62 + 140, FLOOR - 5, 18, 10, { isStatic: true, label: 'stone', chamfer: { radius: 4 }, friction: 0.8 });
+      stone.render = { fill: '#8a8174' };
+      statics.push(stone);
+      const wheel = scooterParts[4];
+      const tips = p.speed >= 1.6;                    // 이보다 느리면 돌에 막혀 멈추고 버팀
+      onStep = st => {
+        if (st.stopped) return;
+        if (wheel.position.x + 6 >= stone.position.x - 18) {   // 앞바퀴가 돌부리에 닿음
+          st.stopped = true;
+          if (!tips) { M.Body.setVelocity(actor, { x: 0, y: 0 }); M.Body.setAngularVelocity(actor, 0); return; }
+          st.lostBalance = true;
+          M.Body.setAngularVelocity(actor, v / 150);   // 바퀴가 멈추고 몸은 앞으로 고꾸라짐
+          M.Body.setVelocity(actor, { x: v * 0.7, y: -0.3 });
+        }
+      };
+      factor *= 0.45 + 0.07 * p.speed;                // 손 짚기: 느릴수록 충격을 더 줄임
+    } else if (id === 'stool') {
+      const h = p.height, seatY = FLOOR - h, x0 = 360;
+      const stool = M.Body.create({
+        parts: [
+          M.Bodies.rectangle(x0, seatY + 4, 54, 8, { label: 'stool', chamfer: { radius: 3 } }),
+          M.Bodies.rectangle(x0, (seatY + 8 + FLOOR - 12) / 2, 7, FLOOR - 12 - seatY - 8, { label: 'stool' }),
+          M.Bodies.rectangle(x0, FLOOR - 13, 64, 5, { label: 'stool' }),
+          M.Bodies.circle(x0 - 28, FLOOR - 5, 5, { label: 'wheel' }),
+          M.Bodies.circle(x0 + 28, FLOOR - 5, 5, { label: 'wheel' })
+        ], label: 'stool', friction: 0.01, frictionStatic: 0.02, frictionAir: 0.01, restitution: 0, density: 0.003
+      });
+      props.push(stool); extra.push(stool);
+      const hip = { x: x0, y: seatY - 85 };
+      doll = dollParts(M, hip, 0, 0, { armAngle: Math.PI - 0.15 });   // 팔을 위로 뻗음
+      actor = compound(M, doll.parts, { label: 'actor', friction: 0.9 });
+      const tips = p.wobble * 10 + p.height >= 80;   // 높고 많이 흔들릴수록 넘어짐
+      const top = add(hip, { x: 0, y: -50 });
+      let balance = M.Constraint.create({ pointA: top, bodyB: actor, pointB: sub(top, actor.position), length: 0, stiffness: 0.1, damping: 0.1 });
+      extra.push(balance);
+      onStep = st => {
+        if (!tips) { if (st.t < 0.6) M.Body.applyForce(stool, stool.position, { x: 0.00004 * p.wobble * stool.mass * Math.sin(st.t * 18), y: 0 }); return; }
+        if (balance && st.t > 0.35) {
+          M.Composite.remove(world, balance); balance = null; st.lostBalance = true;
+          M.Body.setVelocity(stool, { x: 1.2 + 0.25 * p.wobble, y: 0 });          // 발이 의자를 밀어냄
+          M.Body.setAngularVelocity(actor, -(0.02 + 0.003 * p.wobble));            // 뒤로 기울어 떨어짐
+          M.Body.setVelocity(actor, { x: -0.6 - 0.1 * p.wobble, y: -0.6 });
+        }
+      };
+      factor *= 0.95;
     }
 
     M.Composite.add(world, statics.concat([actor], extra));
 
-    const state = { t: 0,  raw: 0, hits: 0, lostBalance: false, startHeadY: doll.head.position.y };
+    const state = { t: 0, raw: 0, hits: 0, lostBalance: false, startHeadY: doll.head.position.y, series: [], impacts: [] };
+    const IMPACT_MIN = 0.8;                            // 이 속도(m/s) 이상 부딪힘만 연출·그래프에 표시
+    const addImpact = (rv, c) => {
+      if (rv < IMPACT_MIN) return;
+      const lastI = state.impacts[state.impacts.length - 1];
+      if (lastI && state.t - lastI.t < 0.08) { if (rv > lastI.v) { lastI.v = rv; lastI.x = c.x; lastI.y = c.y; } return; }
+      if (state.impacts.length < 8) state.impacts.push({ t: Math.round(state.t * 1000) / 1000, x: c.x, y: c.y, v: rv });
+    };
+    /* 관절 위치(인형 몸 기준 좌표)를 기억해 두었다가 그릴 때 실제 위치로 바꿈 */
+    const jointLocal = {};
+    Object.keys(doll.joints).forEach(k => { jointLocal[k] = rot(sub(doll.joints[k], actor.position), -actor.angle); });
+    function joints() {
+      const o = {};
+      Object.keys(jointLocal).forEach(k => { o[k] = add(actor.position, rot(jointLocal[k], actor.angle)); });
+      return o;
+    }
     M.Events.on(engine, 'collisionStart', ev => {
       if (!state) return;
       ev.pairs.forEach(pair => {
@@ -191,10 +294,12 @@
           const mine = A.parent === actor ? A : B.parent === actor ? B : null;
           const other = mine === A ? B : A;
           if (!mine || !other.parent.isStatic || state.t < 0.1) return;
+          if (mine.label === 'wheel' || mine.label === 'scooter') return;   // 킥보드가 돌·바닥에 닿는 건 몸 충격이 아님
           const v = pointVel(actor, doll.head.position);
           const rv = Math.hypot(v.x, v.y) * PX2MS;
           state.hits++;
           if (rv > state.raw) state.raw = rv;
+          addImpact(rv, (pair.collision.supports && pair.collision.supports[0]) || doll.head.position);
           return;
         }
         let headPart = null, other = null;
@@ -209,20 +314,34 @@
         const rv = Math.abs((va.x - vb.x) * n.x + (va.y - vb.y) * n.y) * PX2MS;
         state.hits++;
         if (rv > state.raw) state.raw = rv;
+        addImpact(rv, c);
       });
     });
 
+    const tracked = target === 'phone' ? extra[0] : null;
+    function headSpeed() {
+      const v = tracked ? tracked.velocity : pointVel(actor, doll.head.position);
+      return Math.hypot(v.x, v.y) * PX2MS;
+    }
     function step() {
       M.Engine.update(engine, 1000 / 60);
       state.t += 1 / 60;
       if (onStep) onStep(state);
+      state.series.push(Math.round(headSpeed() * 100) / 100);
     }
     function result() {
       const fell = id === 'phone' || doll.head.position.y - state.startHeadY > 50;
       const eff = fell ? state.raw * factor : 0;
-      return { raw: state.raw, effective: eff, fell, verdict: verdict(eff), hits: state.hits };
+      const first = state.impacts.find(i => i.v >= state.raw * 0.6) || state.impacts[0] || null;
+      return { raw: state.raw, effective: eff, fell, verdict: verdict(eff), hits: state.hits, factor, impactT: first ? first.t : null };
     }
-    return { engine, world, doll, actor, step, result, state, exp, floor: fl, helmet: !!p.helmet };
+    /* 느린 다시보기용: 움직이는 몸의 위치·각도를 저장/복원 */
+    const movers = () => M.Composite.allBodies(world).filter(b => !b.isStatic || b === actor);
+    function snapshot() { return movers().map(b => [b.position.x, b.position.y, b.angle]); }
+    function restore(snap) {
+      movers().forEach((b, k) => { const s = snap[k]; if (!s) return; M.Body.setPosition(b, { x: s[0], y: s[1] }); M.Body.setAngle(b, s[2]); });
+    }
+    return { engine, world, doll, actor, props, step, result, state, exp, floor: fl, helmet: !!p.helmet, factor, joints, snapshot, restore, headSpeed };
   }
 
   function defaults(id) {
