@@ -1,0 +1,24 @@
+:root { --accent: #f76b15; --accent-soft: #ffe8d6; --bg: #f6f4f0; }
+.hero { text-align: center; padding: 16px 0 6px; }
+.dummy { font-size: 72px; animation: wobble 2s ease-in-out infinite; transform-origin: bottom center; display: inline-block; }
+@keyframes wobble { 0%,100% { transform: rotate(-8deg); } 50% { transform: rotate(8deg); } }
+.exps { display: grid; gap: 10px; }
+.exp { display: flex; gap: 14px; align-items: center; text-decoration: none; }
+.exp > span:last-child { display: flex; flex-direction: column; }
+.ee { font-size: 34px; }
+.stage { position: relative; border-radius: 16px; overflow: hidden; border: 1px solid var(--line); background: #eef2fb; }
+.stage canvas { width: 100%; display: block; aspect-ratio: 8 / 5; }
+.stamp {
+  position: absolute; top: 14px; right: 14px; transform: rotate(-8deg); border: 4px solid; border-radius: 10px;
+  padding: 6px 12px; font-weight: 900; font-size: clamp(18px, 5vw, 28px); background: rgba(255,255,255,.88); animation: pop .35s ease;
+}
+@keyframes pop { from { transform: rotate(-8deg) scale(2); opacity: 0; } to { transform: rotate(-8deg) scale(1); opacity: 1; } }
+.meter .bar { height: 14px; margin: 8px 0 2px; }
+.toggle { padding: 4px 0; }
+#slow.on { background: var(--accent-soft); border-color: var(--accent); }
+.safety ul, .card ul { padding-left: 20px; margin: 8px 0 0; }
+.rcard { text-align: center; background: linear-gradient(170deg, #fff, #fff2e6); }
+.rem { font-size: 60px; }
+.rv { font-size: 30px; font-weight: 900; letter-spacing: -.03em; }
+.rn { font-weight: 700; margin-top: 4px; }
+.rsafe { background: #fff; border-radius: 12px; padding: 10px 12px; margin: 12px 0; font-size: 14px; text-align: left; border: 1px solid var(--line); }
