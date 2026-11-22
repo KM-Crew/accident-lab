@@ -112,7 +112,7 @@ Router.on('/lab', (root, params) => {
     st.style.color = st.style.borderColor = VCOLOR[r.verdict.key];
     st.classList.remove('hidden');
     $('#after').classList.remove('hidden');
-    vibrate(r.verdict.key === 'ok' ? 20 : [60, 40, 120]);
+    vibrate(r.verdict.key === 'ok' ? 20 : [60, 40, 120]); Sfx.play(r.verdict.key === 'ok' ? 'ok' : 'bad');
     $('#run').disabled = false; $('#run').textContent = '↻ 다시 실험';
   }
   function loop() {
