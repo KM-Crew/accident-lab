@@ -22,3 +22,10 @@
 .rv { font-size: 30px; font-weight: 900; letter-spacing: -.03em; }
 .rn { font-weight: 700; margin-top: 4px; }
 .rsafe { background: #fff; border-radius: 12px; padding: 10px 12px; margin: 12px 0; font-size: 14px; text-align: left; border: 1px solid var(--line); }
+
+/* ---------- PC 화면 ---------- */
+.pc .hero { text-align: left; }
+.pc .dummy { font-size: 100px; }
+.pc .exps { grid-template-columns: 1fr 1fr; }
+.pc .exp { flex-direction: column; align-items: flex-start; }
+.pc body[data-page=result] main, .pc body[data-page=safety] main { max-width: 760px; }

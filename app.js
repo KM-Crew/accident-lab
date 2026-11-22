@@ -7,7 +7,9 @@ const VCOLOR = { ok: '#2f9e6b', ouch: '#f5a524', hospital: '#f76b15', danger: '#
 let last = store.sget('al-last', null);
 
 Router.on('/', root => {
-  root.append(h(`
+  const wrap = h('<div class="split center"></div>');
+  root.append(wrap);
+  wrap.append(h(`
     <section class="hero">
       <div class="dummy">🧍</div>
       <h1>"에이~ 안 죽어"<br>진짜일까?</h1>
@@ -15,7 +17,7 @@ Router.on('/', root => {
     </section>`));
   const list = h('<section class="exps"></section>');
   L.EXPERIMENTS.forEach(e => list.append(h(`<a class="exp card" href="#/lab?id=${e.id}"><span class="ee">${e.emoji}</span><span><b>${esc(e.name)}</b><span class="muted small">${esc(e.desc)}</span></span></a>`)));
-  root.append(list);
+  wrap.append(list);
   root.append(h(`<div class="notice" style="margin-top:16px">재미를 위한 2D 물리 시뮬레이션이에요. 수치는 추정치이고 의학적 판단이 아니에요. 실제로 따라 하지 마세요.</div>`));
 });
 
@@ -73,14 +75,17 @@ Router.on('/lab', (root, params) => {
     <section class="stack">
       <div class="row"><span class="ee">${e.emoji}</span><h2 style="margin:0">${esc(e.name)}</h2></div>
       <p class="muted" style="margin:0">${esc(e.desc)}</p>
+      <div class="split s73"><div class="stack sticky">
       <div class="stage"><canvas id="cv" width="${L.W}" height="${L.H}"></canvas><div class="stamp hidden" id="stamp"></div></div>
       <div class="meter card"><div class="row"><b>충격 지수</b><span class="grow"></span><b id="num">-</b></div><div class="bar"><i id="mbar" style="width:0%"></i></div><div class="row small muted"><span>안 죽어</span><span class="grow"></span><span>위험</span></div></div>
       <div class="row"><button class="btn primary big grow" id="run">▶ 실험 시작</button><button class="btn big" id="slow" title="느리게">🐢</button></div>
+      </div><div class="stack">
       <div class="card stack" id="ctl">${controlHtml(e, p)}</div>
       <div id="after" class="hidden stack">
         <div class="card safety"><b>🦺 실제로는 이렇게</b><ul>${e.safety.map(s => `<li>${esc(s)}</li>`).join('')}</ul></div>
         <a class="btn block" href="#/result">결과 카드 보기</a>
       </div>
+      </div></div>
       <p class="muted small center">재미용 추정치 · 의학적 근거 아님</p>
     </section>`));
   const cv = $('#cv'), c2 = cv.getContext('2d');
